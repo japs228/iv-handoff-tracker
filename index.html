@@ -314,11 +314,16 @@
   function isDone(t) { return DONE.indexOf((t.Status || "").toLowerCase()) !== -1; }
   function isBlocked(t) { return (t.Status || "").toLowerCase() === "blocked"; }
   function isCritical(t) { return (t.Priority || "").toLowerCase() === "critical"; }
+  function mkDate(y, mo, d) {
+    var dt = new Date(+y, +mo - 1, +d);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+  // The sheet exports MM-DD-YYYY; also accept M/D/YYYY and YYYY-MM-DD.
   function dueDate(t) {
-    var v = (t["Due date"] || "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
-    var d = new Date(v + "T00:00:00");
-    return isNaN(d.getTime()) ? null : d;
+    var v = (t["Due date"] || "").trim(), m;
+    if ((m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) return mkDate(m[1], m[2], m[3]);
+    if ((m = v.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/))) return mkDate(m[3], m[1], m[2]);
+    return null;
   }
   function isOverdue(t) {
     var d = dueDate(t);
