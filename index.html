@@ -177,7 +177,7 @@
 
     <section class="block">
       <h2>Regional open tasks</h2>
-      <p class="hint">Click a region to see its open tasks.</p>
+      <p class="hint">A task covering several regions is counted under each one. Click a region to see its open tasks.</p>
       <div class="bars" id="by-region"></div>
     </section>
 
@@ -313,6 +313,12 @@
       .map(function (s) { return s.trim(); })
       .filter(Boolean);
   }
+  // A task can be tagged with several regions ("Central, Southwest").
+  function regionsOf(t) {
+    return (t.Region || "").split(",")
+      .map(function (s) { return s.trim(); })
+      .filter(Boolean);
+  }
 
   // ---- Rendering helpers ---------------------------------------------------
   function el(tag, cls, text) {
@@ -411,7 +417,10 @@
       onClick: function () { setFilters({ status: "__done" }); }
     }));
 
-    var byRegion = tally(open, function (t) { return t.Region ? [t.Region] : ["(no region)"]; });
+    var byRegion = tally(open, function (t) {
+      var r = regionsOf(t);
+      return r.length ? r : ["(no region)"];
+    });
     barList(document.getElementById("by-region"), byRegion, function (name) {
       setFilters({ region: name === "(no region)" ? "" : name, status: "__open" });
     });
@@ -442,7 +451,7 @@
 
   // ---- Tasks tab -----------------------------------------------------------
   function matches(t) {
-    if (filters.region && t.Region !== filters.region) return false;
+    if (filters.region && regionsOf(t).indexOf(filters.region) === -1) return false;
     if (filters.area && t.Area !== filters.area) return false;
     if (filters.stakeholder && stakeholdersOf(t).indexOf(filters.stakeholder) === -1) return false;
     if (filters.priority && t.Priority !== filters.priority) return false;
@@ -477,7 +486,7 @@
     shown.forEach(function (t) {
       var tr = el("tr");
       tr.appendChild(el("td", "task", t.Task || "—"));
-      tr.appendChild(el("td", null, t.Region || "—"));
+      tr.appendChild(el("td", null, regionsOf(t).join(", ") || "—"));
       tr.appendChild(el("td", null, t.Area || "—"));
       tr.appendChild(el("td", null, stakeholdersOf(t).join(", ") || "—"));
       tr.appendChild(el("td", isCritical(t) ? "crit" : null, t.Priority || "—"));
@@ -569,7 +578,7 @@
   }
 
   function buildFilters() {
-    fillSelect("f-region", "regions", uniq(tasks, function (t) { return [t.Region]; }));
+    fillSelect("f-region", "regions", uniq(tasks, regionsOf));
     fillSelect("f-area", "areas", uniq(tasks, function (t) { return [t.Area]; }));
     fillSelect("f-stakeholder", "stakeholders", uniq(tasks, stakeholdersOf));
     fillSelect("f-priority", "priorities", uniq(tasks, function (t) { return [t.Priority]; }));
