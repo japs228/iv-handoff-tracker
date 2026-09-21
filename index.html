@@ -269,7 +269,7 @@
 
   function csvUrl(tab) {
     return "https://docs.google.com/spreadsheets/d/" + SHEET_ID +
-           "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(tab) +
+           "/gviz/tq?tqx=out:csv&headers=1&sheet=" + encodeURIComponent(tab) +
            "&cachebust=" + Date.now();
   }
 
