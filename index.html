@@ -207,8 +207,8 @@
 
     <section class="block">
       <h2>Open tasks by area</h2>
-      <p class="hint">Click an area to filter the task list.</p>
-      <div class="bars" id="by-area"></div>
+      <p class="hint">Click an area to see its open tasks.</p>
+      <div class="rtiles" id="by-area"></div>
     </section>
   </div>
 
@@ -450,44 +450,70 @@
       setFilters({ stakeholder: name, status: "__open" });
     });
 
-    var byArea = tally(open, function (t) { return t.Area ? [t.Area] : ["(no area)"]; });
-    barList(document.getElementById("by-area"), byArea, function (name) {
-      setFilters({ area: name === "(no area)" ? "" : name, status: "__open" });
-    });
+    renderAreaTiles(open);
   }
 
-  // One tile per region, in the standard order, mirroring the team tracker.
+  // Count tiles: one per region / area, mirroring the team tracker.
   var REGION_ORDER = ["National", "Central", "Southwest", "Southeast", "Midwest", "Florida", "Northeast", "West"];
+  var AREA_ORDER = ["IV", "S&S", "DMT", "Youth", "Training", "Reporting/Technology", "Leadership", "Property Development", "Transition"];
 
-  function renderRegionTiles(open) {
-    var seen = {};
-    open.forEach(function (t) {
-      regionsOf(t).forEach(function (r) { seen[r] = true; });
-    });
-    var extras = Object.keys(seen).filter(function (r) { return REGION_ORDER.indexOf(r) === -1; }).sort();
-    var order = REGION_ORDER.concat(extras);
-
-    var box = document.getElementById("by-region");
+  function tileList(box, entries, onClick) {
     box.innerHTML = "";
-    order.forEach(function (r) {
-      var rows = open.filter(function (t) { return regionsOf(t).indexOf(r) !== -1; });
+    if (!entries.length) {
+      box.appendChild(el("div", "empty", "Nothing open here."));
+      return;
+    }
+    entries.forEach(function (e) {
+      var rows = e.rows;
       var crit = rows.filter(isCritical).length;
       var blocked = rows.filter(isBlocked).length;
       var over = rows.filter(isOverdue).length;
 
-      var b = el("button", "rtile" + (r === "National" ? " nat" : "") + (rows.length ? "" : " zero"));
+      var b = el("button", "rtile" + (e.emph ? " nat" : "") + (rows.length ? "" : " zero"));
       b.type = "button";
-      b.setAttribute("aria-label", r + ": " + rows.length + " open tasks");
-      b.appendChild(el("span", "rn", r));
+      b.setAttribute("aria-label", e.name + ": " + rows.length + " open tasks");
+      b.appendChild(el("span", "rn", e.name));
       b.appendChild(el("span", "rv", String(rows.length)));
       var chips = el("span", "rchips");
       if (crit) chips.appendChild(el("span", "chip c", crit + " critical"));
       if (blocked) chips.appendChild(el("span", "chip b", blocked + " blocked"));
       if (over) chips.appendChild(el("span", "chip o", over + " overdue"));
       b.appendChild(chips);
-      b.addEventListener("click", function () { setFilters({ region: r, status: "__open" }); });
+      b.addEventListener("click", function () { onClick(e.name); });
       box.appendChild(b);
     });
+  }
+
+  // Keep the standard order, then append anything the sheet has that the list doesn't.
+  function orderedKeys(open, keysOf, standard, tail) {
+    var seen = {};
+    open.forEach(function (t) { keysOf(t).forEach(function (k) { seen[k] = true; }); });
+    var extras = Object.keys(seen).filter(function (k) {
+      return standard.indexOf(k) === -1 && k !== tail;
+    }).sort();
+    var order = standard.concat(extras);
+    if (tail && seen[tail]) order = order.concat([tail]);
+    return order;
+  }
+
+  function renderRegionTiles(open) {
+    var order = orderedKeys(open, regionsOf, REGION_ORDER, null);
+    tileList(document.getElementById("by-region"), order.map(function (r) {
+      return {
+        name: r,
+        emph: r === "National",
+        rows: open.filter(function (t) { return regionsOf(t).indexOf(r) !== -1; })
+      };
+    }), function (name) { setFilters({ region: name, status: "__open" }); });
+  }
+
+  function areasOf(t) { return [t.Area ? t.Area : "(no area)"]; }
+
+  function renderAreaTiles(open) {
+    var order = orderedKeys(open, areasOf, AREA_ORDER, "(no area)");
+    tileList(document.getElementById("by-area"), order.map(function (a) {
+      return { name: a, rows: open.filter(function (t) { return areasOf(t)[0] === a; }) };
+    }), function (name) { setFilters({ area: name === "(no area)" ? "" : name, status: "__open" }); });
   }
 
   function tally(list, keysOf) {
