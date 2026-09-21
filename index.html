@@ -116,6 +116,24 @@
   .fill { height: 100%; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 2px; }
   .bar-val { font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-primary); }
 
+  .rtiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 860px) { .rtiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .rtile {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 14px; display: flex; flex-direction: column; gap: 6px;
+    cursor: pointer; text-align: left; width: 100%;
+  }
+  .rtile:hover { border-color: var(--baseline); }
+  .rtile .rn { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .rtile .rv { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; line-height: 1; }
+  .rtile.zero .rv { color: var(--text-muted); font-weight: 500; }
+  .rtile.nat { background: var(--bar-track); }
+  .rchips { display: flex; gap: 4px; flex-wrap: wrap; min-height: 19px; }
+  .chip { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 3px 7px; white-space: nowrap; }
+  .chip.c { background: var(--critical); color: #fff; }
+  .chip.b { background: var(--serious); color: #1a1a19; }
+  .chip.o { background: var(--warning); color: #1a1a19; }
+
   .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; }
   select, input[type="search"] {
     background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
@@ -178,7 +196,7 @@
     <section class="block">
       <h2>Regional open tasks</h2>
       <p class="hint">A task covering several regions is counted under each one. Click a region to see its open tasks.</p>
-      <div class="bars" id="by-region"></div>
+      <div class="rtiles" id="by-region"></div>
     </section>
 
     <section class="block">
@@ -417,13 +435,7 @@
       onClick: function () { setFilters({ status: "__done" }); }
     }));
 
-    var byRegion = tally(open, function (t) {
-      var r = regionsOf(t);
-      return r.length ? r : ["(no region)"];
-    });
-    barList(document.getElementById("by-region"), byRegion, function (name) {
-      setFilters({ region: name === "(no region)" ? "" : name, status: "__open" });
-    });
+    renderRegionTiles(open);
 
     var byStake = tally(open, function (t) {
       var s = stakeholdersOf(t);
@@ -436,6 +448,40 @@
     var byArea = tally(open, function (t) { return t.Area ? [t.Area] : ["(no area)"]; });
     barList(document.getElementById("by-area"), byArea, function (name) {
       setFilters({ area: name === "(no area)" ? "" : name, status: "__open" });
+    });
+  }
+
+  // One tile per region, in the standard order, mirroring the team tracker.
+  var REGION_ORDER = ["National", "Central", "Southwest", "Southeast", "Midwest", "Florida", "Northeast", "West"];
+
+  function renderRegionTiles(open) {
+    var seen = {};
+    open.forEach(function (t) {
+      regionsOf(t).forEach(function (r) { seen[r] = true; });
+    });
+    var extras = Object.keys(seen).filter(function (r) { return REGION_ORDER.indexOf(r) === -1; }).sort();
+    var order = REGION_ORDER.concat(extras);
+
+    var box = document.getElementById("by-region");
+    box.innerHTML = "";
+    order.forEach(function (r) {
+      var rows = open.filter(function (t) { return regionsOf(t).indexOf(r) !== -1; });
+      var crit = rows.filter(isCritical).length;
+      var blocked = rows.filter(isBlocked).length;
+      var over = rows.filter(isOverdue).length;
+
+      var b = el("button", "rtile" + (r === "National" ? " nat" : "") + (rows.length ? "" : " zero"));
+      b.type = "button";
+      b.setAttribute("aria-label", r + ": " + rows.length + " open tasks");
+      b.appendChild(el("span", "rn", r));
+      b.appendChild(el("span", "rv", String(rows.length)));
+      var chips = el("span", "rchips");
+      if (crit) chips.appendChild(el("span", "chip c", crit + " critical"));
+      if (blocked) chips.appendChild(el("span", "chip b", blocked + " blocked"));
+      if (over) chips.appendChild(el("span", "chip o", over + " overdue"));
+      b.appendChild(chips);
+      b.addEventListener("click", function () { setFilters({ region: r, status: "__open" }); });
+      box.appendChild(b);
     });
   }
 
